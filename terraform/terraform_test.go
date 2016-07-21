@@ -712,6 +712,8 @@ aws_instance.foo:
 const testTerraformApplyVarsEnvStr = `
 aws_instance.bar:
   ID = foo
+  bar = Hello,World
+  baz = Baz,Foo,Hello
   foo = baz
   type = aws_instance
 `

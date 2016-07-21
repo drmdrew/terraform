@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/terraform/config"
 	"github.com/hashicorp/terraform/config/module"
 )
@@ -132,8 +133,19 @@ func NewContext(opts *ContextOpts) (*Context, error) {
 		k := v[len(VarEnvPrefix):idx]
 		v = v[idx+1:]
 
-		// Override the command-line set variable
-		variables[k] = v
+		// Override the command line set variable. Note that *not* finding the variable
+		// in configuration is OK, as we don't want to preclude people from having multiple
+		// sets of TF_VAR_whatever in their environment even if it is a little weird.
+		for _, schema := range opts.Module.Config().Variables {
+			if schema.Name == k {
+				varType := schema.Type()
+				varVal, err := parseVariableAsHCL(k, v, varType)
+				if err != nil {
+					return nil, err
+				}
+				variables[k] = varVal
+			}
+		}
 	}
 	for k, v := range opts.Variables {
 		variables[k] = v
@@ -547,4 +559,46 @@ func (c *Context) walk(
 	log.Printf("[DEBUG] Starting graph walk: %s", operation.String())
 	walker := &ContextGraphWalker{Context: c, Operation: operation}
 	return walker, graph.Walk(walker)
+}
+
+// parseVariableAsHCL parses the value of a single variable as would have been specified
+// on the command line via -var or in an environment variable named TF_VAR_x, where x is
+// the name of the variable. In order to get around the restriction of HCL requiring a
+// top level object, we prepend a sentinel key, decode the user-specified value as its
+// value and pull the value back out of the resulting map.
+func parseVariableAsHCL(name, input string, targetType config.VariableType) (interface{}, error) {
+	if targetType == config.VariableTypeString {
+		return input, nil
+	}
+
+	const sentinelValue = "SENTINEL_TERRAFORM_VAR_OVERRIDE_KEY"
+	inputWithSentinal := fmt.Sprintf("%s = %s", sentinelValue, input)
+
+	var decoded map[string]interface{}
+	err := hcl.Decode(&decoded, inputWithSentinal)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse value for variable %s (%q) as valid HCL: %s", name, input, err)
+	}
+
+	if len(decoded) != 1 {
+		return nil, fmt.Errorf("Cannot parse value for variable %s (%q) as valid HCL. Only one value may be specified.", name, input)
+	}
+
+	parsedValue, ok := decoded[sentinelValue]
+	if !ok {
+		return nil, fmt.Errorf("Cannot parse value for variable %s (%q) as valid HCL. One value must be specified.", name, input)
+	}
+
+	switch targetType {
+	case config.VariableTypeList:
+		return parsedValue, nil
+	case config.VariableTypeMap:
+		if list, ok := parsedValue.([]map[string]interface{}); ok {
+			return list[0], nil
+		}
+
+		return nil, fmt.Errorf("Cannot parse value for variable %s (%q) as valid HCL. One value must be specified.", name, input)
+	default:
+		panic(fmt.Errorf("unknown type %s", targetType))
+	}
 }
