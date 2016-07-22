@@ -19,8 +19,8 @@ func TestContext2Input(t *testing.T) {
 			"aws": testProviderFuncFixed(p),
 		},
 		Variables: map[string]interface{}{
-			"foo":            "us-west-2",
-			"amis.us-east-1": "override",
+			"foo":  "us-west-2",
+			"amis": `{"us-east-1" = "override"}`,
 		},
 		UIInput: input,
 	})

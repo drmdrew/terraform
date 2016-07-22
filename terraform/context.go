@@ -120,35 +120,112 @@ func NewContext(opts *ContextOpts) (*Context, error) {
 		par = 10
 	}
 
-	// Setup the variables. We first take the variables given to us.
-	// We then merge in the variables set in the environment.
+	// Set up the variables in the following sequence:
+	//    0 - Take default values from the configuration
+	//    1 - Take values from TF_VAR_x environment variables
+	//    2 - Take values specified in -var flags, overriding values
+	//        set by environment variables if necessary.
 	variables := make(map[string]interface{})
-	for _, v := range os.Environ() {
-		if !strings.HasPrefix(v, VarEnvPrefix) {
-			continue
-		}
 
-		// Strip off the prefix and get the value after the first "="
-		idx := strings.Index(v, "=")
-		k := v[len(VarEnvPrefix):idx]
-		v = v[idx+1:]
-
-		// Override the command line set variable. Note that *not* finding the variable
-		// in configuration is OK, as we don't want to preclude people from having multiple
-		// sets of TF_VAR_whatever in their environment even if it is a little weird.
-		for _, schema := range opts.Module.Config().Variables {
-			if schema.Name == k {
-				varType := schema.Type()
-				varVal, err := parseVariableAsHCL(k, v, varType)
-				if err != nil {
-					return nil, err
+	if opts.Module != nil {
+		for _, v := range opts.Module.Config().Variables {
+			if v.Default != nil {
+				if v.Type() == config.VariableTypeString {
+					// v.Default has already been parsed as HCL so there may be
+					// some stray ints in there
+					switch typedDefault := v.Default.(type) {
+					case string:
+						if typedDefault == "" {
+							continue
+						}
+						variables[v.Name] = typedDefault
+					case int:
+						variables[v.Name] = fmt.Sprintf("%d", typedDefault)
+					case bool:
+						variables[v.Name] = fmt.Sprintf("%t", typedDefault)
+					}
+				} else {
+					variables[v.Name] = v.Default
 				}
-				variables[k] = varVal
 			}
 		}
-	}
-	for k, v := range opts.Variables {
-		variables[k] = v
+
+		for _, v := range os.Environ() {
+			if !strings.HasPrefix(v, VarEnvPrefix) {
+				continue
+			}
+
+			// Strip off the prefix and get the value after the first "="
+			idx := strings.Index(v, "=")
+			k := v[len(VarEnvPrefix):idx]
+			v = v[idx+1:]
+
+			// Override the configuration-default values. Note that *not* finding the variable
+			// in configuration is OK, as we don't want to preclude people from having multiple
+			// sets of TF_VAR_whatever in their environment even if it is a little weird.
+			for _, schema := range opts.Module.Config().Variables {
+				if schema.Name == k {
+					varType := schema.Type()
+					varVal, err := parseVariableAsHCL(k, v, varType)
+					if err != nil {
+						return nil, err
+					}
+					switch varType {
+					case config.VariableTypeMap:
+						if existing, hasMap := variables[k]; !hasMap {
+							variables[k] = varVal
+						} else {
+							if existingMap, ok := existing.(map[string]interface{}); !ok {
+								panic(fmt.Sprintf("%s is not a map, this is a bug in Terraform.", k))
+							} else {
+								if newMap, ok := varVal.(map[string]interface{}); ok {
+									for newKey, newVal := range newMap {
+										existingMap[newKey] = newVal
+									}
+								} else {
+									panic(fmt.Sprintf("%s is not a map, this is a bug in Terraform.", k))
+								}
+							}
+						}
+					default:
+						variables[k] = varVal
+					}
+				}
+			}
+		}
+
+		for k, v := range opts.Variables {
+			for _, schema := range opts.Module.Config().Variables {
+				if schema.Name == k {
+					varType := schema.Type()
+					// Cast is safe as v came from the command line as a string
+					varVal, err := parseVariableAsHCL(k, v, varType)
+					if err != nil {
+						return nil, err
+					}
+					switch varType {
+					case config.VariableTypeMap:
+						if existing, hasMap := variables[k]; !hasMap {
+							variables[k] = varVal
+						} else {
+							if existingMap, ok := existing.(map[string]interface{}); !ok {
+								panic(fmt.Sprintf("%s is not a map, this is a bug in Terraform.", k))
+							} else {
+								if newMap, ok := varVal.(map[string]interface{}); ok {
+									for newKey, newVal := range newMap {
+										existingMap[newKey] = newVal
+									}
+								} else {
+									panic(fmt.Sprintf("%s is not a map, this is a bug in Terraform.", k))
+								}
+							}
+						}
+					default:
+						variables[k] = varVal
+					}
+				}
+			}
+		}
 	}
 
 	return &Context{
@@ -566,7 +643,7 @@ func (c *Context) walk(
 // the name of the variable. In order to get around the restriction of HCL requiring a
 // top level object, we prepend a sentinel key, decode the user-specified value as its
 // value and pull the value back out of the resulting map.
-func parseVariableAsHCL(name, input string, targetType config.VariableType) (interface{}, error) {
+func parseVariableAsHCL(name string, input interface{}, targetType config.VariableType) (interface{}, error) {
 	if targetType == config.VariableTypeString {
 		return input, nil
 	}

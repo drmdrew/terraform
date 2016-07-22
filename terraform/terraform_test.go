@@ -705,6 +705,8 @@ aws_instance.bar:
 aws_instance.foo:
   ID = foo
   bar = baz
+  list = Hello,World
+  map = Baz,Foo,Hello
   num = 2
   type = aws_instance
 `

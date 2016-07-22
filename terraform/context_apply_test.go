@@ -1135,7 +1135,7 @@ func TestContext2Apply_mapVariableOverride(t *testing.T) {
 			"aws": testProviderFuncFixed(p),
 		},
 		Variables: map[string]interface{}{
-			"images.us-west-2": "overridden",
+			"images": `{"us-west-2" = "overridden"}`,
 		},
 	})
 
@@ -4269,8 +4269,10 @@ func TestContext2Apply_vars(t *testing.T) {
 			"aws": testProviderFuncFixed(p),
 		},
 		Variables: map[string]interface{}{
-			"foo":            "us-west-2",
-			"amis.us-east-1": "override",
+			"foo":       "us-west-2",
+			"test_list": `["Hello", "World"]`,
+			"test_map":  `{"Hello" = "World", "Foo" = "Bar", "Baz" = "Foo"}`,
+			"amis":      `{"us-east-1" = "override"}`,
 		},
 	})
 
