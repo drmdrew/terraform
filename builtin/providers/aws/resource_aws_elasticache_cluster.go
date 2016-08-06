@@ -192,6 +192,13 @@ func resourceAwsElasticacheCluster() *schema.Resource {
 				Optional: true,
 				Computed: true,
 			},
+
+			"replication_group_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+				ForceNew: true,
+			},
 		},
 	}
 }
