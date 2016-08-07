@@ -39,7 +39,6 @@ func resourceAwsElasticacheReplicationGroup() *schema.Resource {
 			"num_cache_clusters": &schema.Schema{
 				Type:     schema.TypeInt,
 				Optional: true,
-				Default:  1,
 			},
 			"preferred_cache_cluster_a_zs": &schema.Schema{
 				Type:     schema.TypeList,
