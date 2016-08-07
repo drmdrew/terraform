@@ -16,39 +16,15 @@ func resourceAwsElasticacheReplicationGroup() *schema.Resource {
 			State: schema.ImportStatePassthrough,
 		},
 		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
+			"replication_group_id": &schema.Schema{
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Required: true,
 			},
-			"family": &schema.Schema{
+			"replication_group_description": &schema.Schema{
 				Type:     schema.TypeString,
+				ForceNew: true,
 				Required: true,
-				ForceNew: true,
-			},
-			"description": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-				Default:  "Managed by Terraform",
-			},
-			"parameter": &schema.Schema{
-				Type:     schema.TypeSet,
-				Optional: true,
-				ForceNew: false,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": &schema.Schema{
-							Type:     schema.TypeString,
-							Required: true,
-						},
-						"value": &schema.Schema{
-							Type:     schema.TypeString,
-							Required: true,
-						},
-					},
-				},
-				Set: resourceAwsElasticacheParameterHash,
 			},
 		},
 	}
