@@ -23,8 +23,91 @@ func resourceAwsElasticacheReplicationGroup() *schema.Resource {
 			},
 			"replication_group_description": &schema.Schema{
 				Type:     schema.TypeString,
+				Optional: true,
 				ForceNew: true,
-				Required: true,
+				Default:  "Managed by Terraform",
+			},
+			"primary_cluster_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"automatic_failover_enabled": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			"num_cache_clusters": &schema.Schema{
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  1,
+			},
+			"preferred_cache_cluster_a_zs": &schema.Schema{
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"cache_node_type": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"engine": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"engine_version": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"cache_parameter_group_name": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"cache_subnet_group_name": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"cache_security_group_names": &schema.Schema{
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"cache_security_group_ids": &schema.Schema{
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"snapshot_arns": &schema.Schema{
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"snapshot_name": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"preferred_maitenance_window": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"port": &schema.Schema{
+				Type:     schema.TypeInt,
+				Optional: true,
+			},
+			"notification_topic_arn": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"auto_minor_version_upgrade": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"snapshot_retention_limit": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"snapshot_window": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 		},
 	}
