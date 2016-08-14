@@ -56,6 +56,7 @@ func resourceAwsElasticacheReplicationGroup() *schema.Resource {
 			"engine": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
+				Default:  "redis",
 			},
 			"engine_version": &schema.Schema{
 				Type:     schema.TypeString,
@@ -122,14 +123,14 @@ func resourceAwsElasticacheReplicationGroupCreate(d *schema.ResourceData, meta i
 		ReplicationGroupId:          aws.String(d.Get("replication_group_id").(string)),
 		ReplicationGroupDescription: aws.String(d.Get("replication_group_description").(string)),
 		//		PrimaryClusterId:            aws.String(d.Get("primary_cluster_id")),
-		AutomaticFailoverEnabled: aws.Bool(d.Get("automatic_failover_enabled").(bool)),
+		//AutomaticFailoverEnabled: aws.Bool(d.Get("automatic_failover_enabled").(bool)),
 		//		NumCacheClusters:            aws.Int(d.Get("num_cache_clusters")),
 		//		PreferredCacheClusterAZs:    aws.String(d.Get("preferred_cache_cluster_a_zs")),
-		//		CacheNodeType:               aws.String(d.Get("cache_node_type")),
-		//		Engine:                      aws.String(d.Get("engine")),
+		CacheNodeType: aws.String(d.Get("cache_node_type").(string)),
+		Engine:        aws.String(d.Get("engine").(string)),
 		//		EngineVersion:               aws.String(d.Get("engine_version")),
 		//		CacheParameterGroupName:     aws.String(d.Get("cache_parameter_group_name")),
-		//		CacheSubnetGroupName:        aws.String(d.Get("cache_subnAet_group_name")),
+		//		CacheSubnetGroupName: aws.String(d.Get("cache_subnet_group_name").(string)),
 		//		CacheSecurityGroupNames: aws.String(d.Get("cache_security_group_names")),
 		//		SnapshotArns: aws.String(d.Get("snapshot_arns")),
 		//		SnapshotName: aws.String(d.Get("snapshot_name")),
@@ -142,6 +143,22 @@ func resourceAwsElasticacheReplicationGroupCreate(d *schema.ResourceData, meta i
 	}
 	// TODO: cache_security_groupp_ids support??
 	// CacheSecurityGroupIds: aws.String("cache_security_group_ids")),
+
+	if v, ok := d.GetOk("primary_cluster_id"); ok {
+		req.PrimaryClusterId = aws.String(v.(string))
+	}
+
+	if v, ok := d.GetOk("automatic_failover_enabled"); ok {
+		req.AutomaticFailoverEnabled = aws.Bool(v.(bool))
+	}
+
+	if v, ok := d.GetOk("num_cache_clusters"); ok {
+		req.NumCacheClusters = aws.Int64(int64(v.(int)))
+	}
+
+	if v, ok := d.GetOk("cache_subnet_group_name"); ok {
+		req.CacheSubnetGroupName = aws.String(v.(string))
+	}
 
 	if v, ok := d.GetOk("preferred_cache_cluster_a_zs"); ok && v.(*schema.Set).Len() > 0 {
 		req.PreferredCacheClusterAZs = expandStringList(v.(*schema.Set).List())
@@ -190,7 +207,33 @@ func resourceAwsElasticacheReplicationGroupUpdate(d *schema.ResourceData, meta i
 }
 
 func resourceAwsElasticacheReplicationGroupDelete(d *schema.ResourceData, meta interface{}) error {
-	log.Printf("[DEBUG] Delete Cache Replication Group: %v", d)
+	conn := meta.(*AWSClient).elasticacheconn
+
+	req := &elasticache.DeleteReplicationGroupInput{
+		ReplicationGroupId: aws.String(d.Id()),
+	}
+	_, err := conn.DeleteReplicationGroup(req)
+	if err != nil {
+		return err
+	}
+	/*
+		//	log.Printf("[DEBUG] Waiting for deletion: %v", d.Id())
+		//	stateConf := &resource.StateChangeConf{
+		//		Pending:    []string{"creating", "available", "deleting", "incompatible-parameters", "incompatible-network", "restore-failed"},
+		//		Target:     []string{},
+		//		Refresh:    cacheClusterStateRefreshFunc(conn, d.Id(), "", []string{}),
+		//		Timeout:    20 * time.Minute,
+		//		Delay:      10 * time.Second,
+		//		MinTimeout: 3 * time.Second,
+		//	}
+		//
+		//	_, sterr := stateConf.WaitForState()
+		//	if sterr != nil {
+		//		return fmt.Errorf("Error waiting for elasticache (%s) to delete: %s", d.Id(), sterr)
+		//	}
+	*/
+	d.SetId("")
+
 	return nil
 }
 
