@@ -3,6 +3,10 @@ package aws
 import (
 	"log"
 
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -114,13 +118,68 @@ func resourceAwsElasticacheReplicationGroup() *schema.Resource {
 
 func resourceAwsElasticacheReplicationGroupCreate(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).elasticacheconn
-	log.Printf("[DEBUG] Create Cache Replication Group: %v", conn)
-	return resourceAwsElasticacheReplicationGroupUpdate(d, meta)
+	req := elasticache.CreateReplicationGroupInput{
+		ReplicationGroupId:          aws.String(d.Get("replication_group_id").(string)),
+		ReplicationGroupDescription: aws.String(d.Get("replication_group_description").(string)),
+		//		PrimaryClusterId:            aws.String(d.Get("primary_cluster_id")),
+		AutomaticFailoverEnabled: aws.Bool(d.Get("automatic_failover_enabled").(bool)),
+		//		NumCacheClusters:            aws.Int(d.Get("num_cache_clusters")),
+		//		PreferredCacheClusterAZs:    aws.String(d.Get("preferred_cache_cluster_a_zs")),
+		//		CacheNodeType:               aws.String(d.Get("cache_node_type")),
+		//		Engine:                      aws.String(d.Get("engine")),
+		//		EngineVersion:               aws.String(d.Get("engine_version")),
+		//		CacheParameterGroupName:     aws.String(d.Get("cache_parameter_group_name")),
+		//		CacheSubnetGroupName:        aws.String(d.Get("cache_subnAet_group_name")),
+		//		CacheSecurityGroupNames: aws.String(d.Get("cache_security_group_names")),
+		//		SnapshotArns: aws.String(d.Get("snapshot_arns")),
+		//		SnapshotName: aws.String(d.Get("snapshot_name")),
+		//		PreferredMaintenanceWindow: aws.String(d.Get("preferred_maitenance_window")),
+		//		Port: aws.String(d.Get("port")),
+		//		NotificationTopicArn: aws.String(d.Get("notification_topic_arn")),
+		//		AutoMinorVersionUpgrade: aws.String(d.Get("auto_minor_version_upgrade")),
+		//		SnapshotRetentionLimit: aws.String(d.Get("snapshot_retention_limit")),
+		//		SnapshotWindow: aws.String(d.Get("snapshot_window")),
+	}
+	// TODO: cache_security_groupp_ids support??
+	// CacheSecurityGroupIds: aws.String("cache_security_group_ids")),
+
+	if v, ok := d.GetOk("preferred_cache_cluster_a_zs"); ok && v.(*schema.Set).Len() > 0 {
+		req.PreferredCacheClusterAZs = expandStringList(v.(*schema.Set).List())
+	}
+
+	log.Printf("[DEBUG] Create Cache Replication Group: %v, %v", conn, req)
+
+	resp, err := conn.CreateReplicationGroup(&req)
+	if err != nil {
+		return fmt.Errorf("Error creating Elasticache: %s", err)
+	}
+
+	log.Printf("[DEBUG] Creating replication group id: %v", resp.ReplicationGroup.ReplicationGroupId)
+
+	return resourceAwsElasticacheReplicationGroupRead(d, meta)
 }
 
 func resourceAwsElasticacheReplicationGroupRead(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).elasticacheconn
 	log.Printf("[DEBUG] Read Cache Replication Group: %v", conn)
+
+	req := &elasticache.DescribeReplicationGroupsInput{
+		ReplicationGroupId: aws.String(d.Id()),
+	}
+
+	res, err := conn.DescribeReplicationGroups(req)
+	if err != nil {
+		log.Printf("[DEBUG] Replication Group error: %v", err)
+		return err
+	}
+
+	if len(res.ReplicationGroups) == 1 {
+		rg := res.ReplicationGroups[0]
+		d.Set("replication_group_id", rg.ReplicationGroupId)
+		d.Set("replication_group_description", rg.Description)
+		//  d.Set("automatic_failover_enabled", rg.AutomaticFailover)
+		log.Printf("[DEBUG] setting id and description: %v, %v", rg.ReplicationGroupId, rg.Description)
+	}
 	return nil
 }
 
